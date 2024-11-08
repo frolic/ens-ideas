@@ -51,13 +51,14 @@ const resolveAddress = async (
     }
     const avatar = name ? getAvatar(name) : null;
     return { address, name, displayName, avatar };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error("error resolving address:", address, error);
     return {
       address,
       name: null,
       displayName,
       avatar: null,
-      error: error.message,
+      error: String(error),
     };
   }
 };
@@ -68,13 +69,14 @@ const resolveName = async (name: string): Promise<ResponseData> => {
   try {
     const address = await publicClient.getEnsAddress({ name: normalize(name) });
     return { address, name, displayName, avatar };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error("error resolving name:", name, error);
     return {
       address: null,
       name,
       displayName,
       avatar,
-      error: error.message,
+      error: String(error),
     };
   }
 };
