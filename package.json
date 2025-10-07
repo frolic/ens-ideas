@@ -24,7 +24,7 @@
     "react-dom": "17.0.2",
     "react-use": "^17.3.1",
     "urql": "^2.0.6",
-    "viem": "^2.21.43",
+    "viem": "^2.37.11",
     "zustand": "^3.6.7"
   },
   "devDependencies": {
