@@ -1,9 +1,10 @@
+import { worker } from "../alchemy.run.ts";
 import { router } from "./router.ts";
 
 export default {
   async fetch(
     req: Request,
-    env: Env,
+    env: typeof worker.Env,
     ctx: ExecutionContext
   ): Promise<Response> {
     const cacheKey = new Request(req.url.toLowerCase(), req);

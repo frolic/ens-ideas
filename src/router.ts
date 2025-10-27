@@ -4,10 +4,11 @@ import { mainnet } from "viem/chains";
 import { resolveAddress } from "./resolveAddress";
 import { resolveName } from "./resolveName";
 import { resolveUrl } from "./resolveUrl";
+import { worker } from "../alchemy.run";
 
 export const router = AutoRouter<
   IRequestStrict,
-  [Env, ExecutionContext],
+  [typeof worker.Env, ExecutionContext],
   Response
 >();
 

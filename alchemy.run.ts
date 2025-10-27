@@ -3,12 +3,17 @@ import { GitHubComment } from "alchemy/github";
 import { CloudflareStateStore } from "alchemy/state";
 import { Worker } from "alchemy/cloudflare";
 
-const app = await alchemy("instant-ens", {
+const app = await alchemy("instant-ens-api", {
   stateStore: (scope) => new CloudflareStateStore(scope),
 });
 
 export const worker = await Worker("worker", {
+  name: app.name,
   entrypoint: "src/worker.ts",
+  domains: ["api.instantens.com"],
+  bindings: {
+    ETHEREUM_RPC_URL: process.env.ETHEREUM_RPC_URL!,
+  },
 });
 
 if (process.env.PULL_REQUEST) {
