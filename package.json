@@ -10,11 +10,14 @@
     "dev": "alchemy dev --env-file .env"
   },
   "devDependencies": {
-    "alchemy": "0.76.1",
-    "@cloudflare/workers-types": "^4.20250805.0",
-    "miniflare": "^4.20250617.3",
+    "@cloudflare/workers-types": "^4.20251014.0",
     "@types/node": "^24.0.3",
+    "alchemy": "0.76.1",
+    "miniflare": "^4.20250617.3",
     "typescript": "^5.8.3"
   },
-  "dependencies": {}
+  "dependencies": {
+    "itty-router": "^5.0.22",
+    "viem": "^2.38.4"
+  }
 }

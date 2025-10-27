@@ -9,13 +9,8 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "noEmit": true,
-    "types": [
-      "@cloudflare/workers-types"
-    ]
+    "lib": ["ESNext"],
+    "types": ["@cloudflare/workers-types"]
   },
-  "include": [
-    "src/**/*",
-    "types/**/*",
-    "alchemy.run.ts"
-  ]
+  "include": ["src", "alchemy.run.ts"]
 }

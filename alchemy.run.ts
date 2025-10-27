@@ -11,8 +11,6 @@ export const worker = await Worker("worker", {
   entrypoint: "src/worker.ts",
 });
 
-console.log(worker.url);
-
 if (process.env.PULL_REQUEST) {
   const previewUrl = worker.url;
 

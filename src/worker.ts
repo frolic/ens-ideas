@@ -1,11 +1,21 @@
-import type { worker } from "../alchemy.run.ts";
+import { router } from "./router.ts";
 
 export default {
   async fetch(
-    request: Request,
-    env: typeof worker.Env,
-    ctx: ExecutionContext,
+    req: Request,
+    env: Env,
+    ctx: ExecutionContext
   ): Promise<Response> {
-    return new Response("Hello World from my-alchemy-app!");
+    const cacheKey = new Request(req.url.toLowerCase(), req);
+    const cache = caches.default;
+
+    let res = await cache.match(cacheKey);
+
+    if (!res) {
+      res = await router.fetch(req, env, ctx);
+      ctx.waitUntil(cache.put(cacheKey, res.clone()));
+    }
+
+    return res;
   },
 };
