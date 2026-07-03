@@ -24,8 +24,8 @@ if (process.env.PULL_REQUEST) {
   const previewUrl = worker.url;
 
   await GitHubComment("pr-preview-comment", {
-    owner: process.env.GITHUB_REPOSITORY_OWNER || "frolic",
-    repository: process.env.GITHUB_REPOSITORY_NAME || "instant-ens",
+    owner: process.env.GITHUB_REPOSITORY_OWNER || "holic",
+    repository: process.env.GITHUB_REPOSITORY_NAME || "ens-ideas",
     issueNumber: Number(process.env.PULL_REQUEST),
     body: `
 ## 🚀 Preview Deployed

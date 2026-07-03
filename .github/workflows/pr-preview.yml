@@ -16,19 +16,23 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    defaults:
+      run:
+        working-directory: api
     steps:
       - uses: actions/checkout@v4
-      - &a1
-        name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: pnpm
       - &a2
         name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: "9"
+          version: "10"
+      - &a1
+        name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
       - &a3
         name: Install dependencies
         shell: bash
@@ -52,10 +56,13 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    defaults:
+      run:
+        working-directory: api
     steps:
       - uses: actions/checkout@v4
-      - *a1
       - *a2
+      - *a1
       - *a3
       - name: Cleanup Preview
         run: pnpm run destroy
