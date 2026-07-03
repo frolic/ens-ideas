@@ -1,7 +1,7 @@
 import alchemy from "alchemy";
 import { GitHubComment } from "alchemy/github";
 import { CloudflareStateStore } from "alchemy/state";
-import { Worker } from "alchemy/cloudflare";
+import { RateLimit, Worker } from "alchemy/cloudflare";
 
 const app = await alchemy("instant-ens-api", {
   stateStore: (scope) => new CloudflareStateStore(scope),
@@ -13,6 +13,10 @@ export const worker = await Worker("worker", {
   domains: ["api.instantens.com", "api.ensideas.com"],
   bindings: {
     ETHEREUM_RPC_URL: process.env.ETHEREUM_RPC_URL!,
+    RATE_LIMITER: RateLimit({
+      namespace_id: 1001,
+      simple: { limit: 1000, period: 60 },
+    }),
   },
 });
 
