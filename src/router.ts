@@ -1,4 +1,4 @@
-import { AutoRouter, IRequestStrict, status, json } from "itty-router";
+import { AutoRouter, IRequestStrict, status, json, cors } from "itty-router";
 import { createClient, http, isAddress } from "viem";
 import { mainnet } from "viem/chains";
 import { resolveAddress } from "./resolveAddress";
@@ -6,13 +6,18 @@ import { resolveName } from "./resolveName";
 import { resolveUrl } from "./resolveUrl";
 import { worker } from "../alchemy.run";
 
+const { preflight, corsify } = cors();
+
 export const router = AutoRouter<
   IRequestStrict,
   [typeof worker.Env, ExecutionContext],
   Response
->();
+>({
+  before: [preflight],
+  finally: [corsify],
+});
 
-router.get("/resolve/:address", async ({ url, params }, env) => {
+router.get("/ens/resolve/:address", async ({ url, params }, env) => {
   const client = createClient({
     chain: mainnet,
     transport: http(env.ETHEREUM_RPC_URL),

@@ -10,7 +10,7 @@ const app = await alchemy("instant-ens-api", {
 export const worker = await Worker("worker", {
   name: app.name,
   entrypoint: "src/worker.ts",
-  domains: ["api.instantens.com"],
+  domains: ["api.instantens.com", "api.ensideas.com"],
   bindings: {
     ETHEREUM_RPC_URL: process.env.ETHEREUM_RPC_URL!,
   },

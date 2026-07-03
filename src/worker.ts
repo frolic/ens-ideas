@@ -1,6 +1,8 @@
 import { worker } from "../alchemy.run.ts";
 import { router } from "./router.ts";
 
+// TODO: detect deprecated /ens path prefix and strip/use cache without it
+
 export default {
   async fetch(
     req: Request,
