@@ -1,0 +1,10 @@
+node_modules
+dist
+.wrangler
+wrangler.jsonc
+/src/pages.gen.ts
+.env*
+*.tsbuildinfo
+.cache
+.DS_Store
+*.pem
