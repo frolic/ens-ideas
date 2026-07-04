@@ -60,7 +60,7 @@ beforeAll(async () => {
     ],
     bindings: { ETHEREUM_RPC_URL: "https://rpc.mock/" },
     ratelimits: { RATE_LIMITER: { simple: { limit: RATE_LIMIT, period: 60 } } },
-    outboundService: async (request) => {
+    outboundService: async (request: Request) => {
       const url = new URL(request.url);
       if (url.hostname !== "rpc.mock") {
         return new Response(`unexpected outbound: ${request.url}`, {

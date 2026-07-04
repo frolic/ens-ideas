@@ -4,7 +4,7 @@ import { mainnet } from "viem/chains";
 import { resolveAddress } from "./resolveAddress";
 import { resolveName } from "./resolveName";
 import { resolveUrl } from "./resolveUrl";
-import { worker } from "../alchemy.run";
+import { worker } from "../../alchemy.run";
 
 const { preflight, corsify } = cors();
 
