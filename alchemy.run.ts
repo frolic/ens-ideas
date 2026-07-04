@@ -7,33 +7,42 @@ const app = await alchemy("instant-ens-api", {
   stateStore: (scope) => new CloudflareStateStore(scope),
 });
 
-const isProd = app.stage === "prod";
+const stage = app.stage;
+const isProd = stage === "prod";
 
-// API worker — declared identically to the former api/alchemy.run.ts so the
-// existing deployment state maps and the live worker is a no-op. `adopt` guards
-// against recreation if the resource identity ever fails to map.
+// Both workers are fully stage-aware in BOTH name and hostname. Only the `prod`
+// stage uses the production worker names + live hostnames; every other stage
+// deploys a completely separate parallel stack (distinct worker names on
+// `<stage>.ensideas.com` hostnames) so a non-prod deploy can never touch the
+// live `instant-ens-api` worker or its domains.
+//
+// NOTE: the live API worker is currently managed under the `kevin` stage — do
+// NOT deploy that stage with this config (it would rename the live worker).
+// Use `deploy:beta` for the parallel test and `deploy:prod` for the takeover.
+
+// API worker.
 export const worker = await Worker("worker", {
-  name: "instant-ens-api",
+  name: isProd ? "instant-ens-api" : `instant-ens-api-${stage}`,
   entrypoint: "api/src/worker.ts",
   adopt: true,
-  domains: ["api.instantens.com", "api.ensideas.com"],
+  domains: isProd
+    ? ["api.instantens.com", "api.ensideas.com"]
+    : [`api-${stage}.ensideas.com`],
   bindings: {
     ETHEREUM_RPC_URL: process.env.ETHEREUM_RPC_URL!,
     RATE_LIMITER: RateLimit({
-      namespace_id: 1001,
+      // Distinct namespace off-prod so a test never shares the live counter.
+      namespace_id: isProd ? 1001 : 1002,
       simple: { limit: 1000, period: 60 },
     }),
   },
 });
 
-// Site worker — Waku SSR frontend, prebuilt by `waku build` (Cloudflare
-// adapter) into site/dist. Stage-aware: prod owns ensideas.com; every other
-// stage previews on beta.ensideas.com so production is never touched by a
-// non-prod deploy.
+// Site worker — Waku SSR frontend, prebuilt by `waku build` (Cloudflare adapter).
 const siteAssets = await Assets({ path: "site/dist/public" });
 
 export const site = await Worker("site", {
-  name: isProd ? "ens-ideas-site" : `ens-ideas-site-${app.stage}`,
+  name: isProd ? "ens-ideas-site" : `ens-ideas-site-${stage}`,
   entrypoint: "site/dist/server/index.js",
   adopt: true,
   noBundle: true,
@@ -42,7 +51,7 @@ export const site = await Worker("site", {
   bindings: { ASSETS: siteAssets },
   compatibilityFlags: ["nodejs_als"],
   compatibilityDate: "2025-11-17",
-  domains: isProd ? ["ensideas.com", "www.ensideas.com"] : ["beta.ensideas.com"],
+  domains: isProd ? ["ensideas.com", "www.ensideas.com"] : [`${stage}.ensideas.com`],
 });
 
 if (process.env.PULL_REQUEST) {

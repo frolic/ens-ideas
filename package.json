@@ -4,10 +4,10 @@
   "type": "module",
   "scripts": {
     "build:site": "CLOUDFLARE=1 pnpm --filter ./site run build",
-    "deploy": "pnpm run build:site && alchemy deploy --env-file .env",
-    "run": "alchemy run --env-file .env",
-    "dev": "alchemy dev --env-file .env",
-    "destroy": "alchemy destroy --env-file .env"
+    "deploy:beta": "pnpm run build:site && alchemy deploy --env-file .env --stage beta",
+    "deploy:prod": "pnpm run build:site && alchemy deploy --env-file .env --stage prod",
+    "run:beta": "alchemy run --env-file .env --stage beta",
+    "destroy:beta": "alchemy destroy --env-file .env --stage beta"
   },
   "devDependencies": {
     "alchemy": "0.93.12"
