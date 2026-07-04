@@ -15,6 +15,9 @@
 # production
 /build
 
+# alchemy (local build output + state)
+.alchemy
+
 # misc
 .DS_Store
 *.pem
