@@ -6,9 +6,16 @@ on:
     branches:
       - main
 
+concurrency:
+  group: preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
     steps:
       - uses: actions/checkout@v4
       - name: Setup pnpm
@@ -28,3 +35,48 @@ jobs:
         run: pnpm --filter ./api run build
       - name: Build site
         run: pnpm run build:site
+
+      # ---- PR preview deploy, surfaced via the GitHub Deployments API ----
+      - name: Create GitHub deployment
+        if: github.event_name == 'pull_request'
+        id: deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          deployment_id=$(jq -nc \
+            --arg ref "${{ github.event.pull_request.head.sha }}" \
+            '{ref: $ref, environment: "preview", transient_environment: true, production_environment: false, auto_merge: false, required_contexts: []}' \
+            | gh api --method POST "/repos/${{ github.repository }}/deployments" --input - | jq -r '.id')
+          echo "id=$deployment_id" >> "$GITHUB_OUTPUT"
+          gh api --method POST "/repos/${{ github.repository }}/deployments/$deployment_id/statuses" \
+            -f state=pending \
+            -f description="Deploying preview" \
+            -f log_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Deploy preview
+        if: github.event_name == 'pull_request'
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
+          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+          ETHEREUM_RPC_URL: ${{ secrets.ETHEREUM_RPC_URL }}
+        run: pnpm exec alchemy deploy --stage "pr-${{ github.event.pull_request.number }}"
+
+      - name: Report deployment status
+        if: always() && github.event_name == 'pull_request' && steps.deployment.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ steps.deploy.outcome }}" = "success" ]; then
+            state=success
+            url="https://ens-ideas-site-pr-${{ github.event.pull_request.number }}.megabytes.workers.dev"
+          else
+            state=error
+            url=""
+          fi
+          gh api --method POST "/repos/${{ github.repository }}/deployments/${{ steps.deployment.outputs.id }}/statuses" \
+            -f state="$state" \
+            -f description="Preview $state" \
+            -f log_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            ${url:+-f environment_url="$url"}
