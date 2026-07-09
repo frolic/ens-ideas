@@ -32,7 +32,7 @@ const blockNumber = numberToHex(123n);
 function requestBlockNumber() {
   const client = createClient({
     chain: mainnet,
-    transport: ethereumTransport(PAID_RPC_URL),
+    transport: ethereumTransport(rpcUrls, PAID_RPC_URL),
   });
   return client.request({ method: "eth_blockNumber" });
 }
