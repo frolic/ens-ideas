@@ -21,7 +21,7 @@ export const router = AutoRouter<
 
 // Current pool of known-good ENS RPCs (health-checked, cached). Handy for
 // debugging and reused by the resolver below.
-router.get("/ens/rpcs", async (_request, _env, ctx) => {
+router.get("/rpcs", async (_request, _env, ctx) => {
   return json(await getRpcPool(ctx), {
     headers: { "Cache-Control": "public, max-age=60" },
   });
