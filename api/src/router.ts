@@ -1,6 +1,7 @@
 import { AutoRouter, IRequestStrict, status, json, cors } from "itty-router";
-import { createClient, http, isAddress } from "viem";
+import { createClient, isAddress } from "viem";
 import { mainnet } from "viem/chains";
+import { ethereumTransport } from "./ethereumTransport";
 import { resolveAddress } from "./resolveAddress";
 import { resolveName } from "./resolveName";
 import { resolveUrl } from "./resolveUrl";
@@ -20,7 +21,7 @@ export const router = AutoRouter<
 router.get("/ens/resolve/:address", async ({ url, params }, env) => {
   const client = createClient({
     chain: mainnet,
-    transport: http(env.ETHEREUM_RPC_URL),
+    transport: ethereumTransport(env.ETHEREUM_RPC_URL),
   });
 
   const lowercaseAddress = params.address.toLowerCase();
