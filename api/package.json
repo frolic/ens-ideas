@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:rpcs": "node --experimental-strip-types scripts/verify-rpcs.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251014.0",

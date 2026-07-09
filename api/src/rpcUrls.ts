@@ -1,14 +1,19 @@
 /**
- * Free public Ethereum mainnet RPC endpoints — full nodes that serve the ENS
- * universal-resolver `eth_call`s we need. These are tried (in random order)
- * ahead of the paid endpoint so it's only used when every free RPC is failing
- * or rate-limited. Edit freely to tune the pool.
+ * Free public Ethereum mainnet RPC endpoints, tried (in random order) ahead of
+ * the paid endpoint so it's only used when every free RPC is failing or
+ * rate-limited. Edit freely to tune the pool.
+ *
+ * Every URL here was verified to resolve ENS forward + reverse (`vitalik.eth`)
+ * in under 400ms. Re-check with `pnpm --filter ./api run verify:rpcs` if you add
+ * more — many well-known public RPCs are down, rate-limited, or revert on the
+ * universal-resolver call (llamarpc, cloudflare-eth, 1rpc, ankr all failed).
  */
 export const rpcUrls = [
-  "https://eth.llamarpc.com",
   "https://ethereum-rpc.publicnode.com",
   "https://eth.drpc.org",
-  "https://cloudflare-eth.com",
-  "https://1rpc.io/eth",
-  "https://eth.meowrpc.com",
+  "https://eth-mainnet.public.blastapi.io",
+  "https://eth.rpc.blxrbdn.com",
+  "https://rpc.mevblocker.io",
+  "https://eth-pokt.nodies.app",
+  "https://gateway.tenderly.co/public/mainnet",
 ] as const;
