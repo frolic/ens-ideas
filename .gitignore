@@ -8,6 +8,9 @@ node_modules
 # testing
 coverage
 
+# alchemy (local build output + state)
+.alchemy
+
 # misc
 .DS_Store
 *.pem

@@ -5,15 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run",
-    "deploy": "alchemy deploy --env-file .env",
-    "destroy": "alchemy destroy --env-file .env",
-    "dev": "alchemy dev --env-file .env"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251014.0",
     "@types/node": "^24.0.3",
-    "alchemy": "0.93.12",
     "esbuild": "^0.28.1",
     "miniflare": "^4.20250617.3",
     "typescript": "^5.8.3",
