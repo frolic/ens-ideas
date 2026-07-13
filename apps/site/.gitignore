@@ -1,0 +1,15 @@
+# next.js
+.next/
+out/
+
+# production
+build
+
+# vercel
+.vercel
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo

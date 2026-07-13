@@ -1,0 +1,46 @@
+{
+  "private": true,
+  "name": "ens-ideas",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "engines": {
+    "node": "22.x",
+    "pnpm": "9.x"
+  },
+  "dependencies": {
+    "@ensdomains/eth-ens-namehash": "^2.0.15",
+    "@ethersproject/address": "^5.7.0",
+    "@ethersproject/providers": "^5.7.1",
+    "classnames": "^2.3.1",
+    "graphql": "^16.2.0",
+    "lodash": "^4.17.21",
+    "luxon": "^2.2.0",
+    "next": "^12.0.7",
+    "react": "17.0.2",
+    "react-dom": "17.0.2",
+    "react-use": "^17.3.1",
+    "urql": "^2.0.6",
+    "viem": "^2.37.11",
+    "zustand": "^3.6.7"
+  },
+  "devDependencies": {
+    "@ethersproject/abi": "^5.5.0",
+    "@ethersproject/bytes": "^5.5.0",
+    "@types/lodash": "^4.14.178",
+    "@types/luxon": "^2.0.8",
+    "@types/node": "17.0.2",
+    "@types/react": "17.0.37",
+    "@types/react-dom": "^17.0.10",
+    "autoprefixer": "^10.4.0",
+    "eslint": "8.5.0",
+    "eslint-config-next": "12.0.7",
+    "ethers": "^5.7.1",
+    "postcss": "^8.4.5",
+    "tailwindcss": "^3.0.7",
+    "typescript": "5.6.3"
+  }
+}
