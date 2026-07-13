@@ -1,3 +1,5 @@
+"use client";
+
 import { useRecentRegistrations } from "./useRecentRegistrations";
 import { RelativeTime } from "./RelativeTime";
 import { DateTime } from "luxon";

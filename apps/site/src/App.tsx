@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { RecentRegistrations } from "./RecentRegistrations";
 import { DomainCard } from "./DomainCard";

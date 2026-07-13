@@ -1,10 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { DateTime } from "luxon";
-import { useQuery, gql } from "urql";
-import { useEffect } from "react";
+import { queryGraph } from "./lib/graph";
 
-// TODO: figure out how to generate/extract types from this query
-
-const RecentRegistrationsQuery = gql`
+const RecentRegistrationsQuery = `
   query RecentRegistrationsQuery {
     registrations(first: 100, orderBy: registrationDate, orderDirection: desc) {
       registrationDate
@@ -22,23 +22,40 @@ type Registration = {
   expiryDate: DateTime;
 };
 
+type RawRegistration = {
+  registrationDate: string;
+  expiryDate: string;
+  domain: { name: string };
+};
+
 export const useRecentRegistrations = (): Registration[] => {
-  const [result, reexecuteQuery] = useQuery({
-    query: RecentRegistrationsQuery,
-  });
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      reexecuteQuery({ requestPolicy: "network-only" });
-    }, 1000 * 5);
-    return () => clearInterval(timer);
-  }, [reexecuteQuery]);
+    let cancelled = false;
 
-  return (
-    result.data?.registrations.map((registration: any) => ({
-      name: registration.domain.name,
-      registrationDate: DateTime.fromSeconds(+registration.registrationDate),
-      expiryDate: DateTime.fromSeconds(+registration.expiryDate),
-    })) || []
-  );
+    const fetchRegistrations = async () => {
+      const data = await queryGraph(RecentRegistrationsQuery);
+      if (cancelled || !data) return;
+      setRegistrations(
+        data.registrations.map((registration: RawRegistration) => ({
+          name: registration.domain.name,
+          registrationDate: DateTime.fromSeconds(
+            +registration.registrationDate
+          ),
+          expiryDate: DateTime.fromSeconds(+registration.expiryDate),
+        }))
+      );
+    };
+
+    fetchRegistrations();
+    const timer = setInterval(fetchRegistrations, 1000 * 5);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  return registrations;
 };
