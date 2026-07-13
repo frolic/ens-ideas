@@ -1,3 +1,5 @@
+"use client";
+
 import { DateTime } from "luxon";
 import { useEffect, useState } from "react";
 

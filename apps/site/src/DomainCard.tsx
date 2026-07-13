@@ -1,7 +1,8 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import classNames from "classnames";
-// @ts-ignore
-import { normalize } from "@ensdomains/eth-ens-namehash";
+import { normalize } from "viem/ens";
 import { RelativeTime } from "./RelativeTime";
 import { DateTime } from "luxon";
 import { useRegistration } from "./useRegistration";
