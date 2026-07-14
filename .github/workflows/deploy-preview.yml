@@ -30,10 +30,10 @@ jobs:
           # merge commit on pull_request events, which breaks the PR link.
           ref: ${{ github.event.pull_request.head.sha }}
           stage: pr-${{ github.event.pull_request.number }}
-          environment: preview/pr-${{ github.event.pull_request.number }}
-          url-pattern: "-site-"
+          environment-prefix: preview/pr-${{ github.event.pull_request.number }}
           cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ethereum-rpc-url: ${{ secrets.ETHEREUM_RPC_URL }}
 
   teardown:
     if: github.event.action == 'closed'
@@ -49,18 +49,24 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      # The stage's resources are gone — mark its deployments inactive so the
-      # Environments tab reflects reality.
+      # The stage's resources are gone — mark every per-app environment
+      # (preview/pr-N/<app>) and any stage-level failure deployment inactive so
+      # the Environments tab reflects reality.
       - if: always()
         uses: actions/github-script@v7
         with:
           script: |
-            const environment = `preview/pr-${context.issue.number}`;
-            const { data: deployments } = await github.rest.repos.listDeployments({
+            const prefix = `preview/pr-${context.issue.number}`;
+            const deployments = await github.paginate(github.rest.repos.listDeployments, {
               ...context.repo,
-              environment,
+              per_page: 100,
             });
-            for (const deployment of deployments) {
+            const mine = deployments.filter(
+              (deployment) =>
+                deployment.environment === prefix ||
+                deployment.environment.startsWith(`${prefix}/`),
+            );
+            for (const deployment of mine) {
               await github.rest.repos.createDeploymentStatus({
                 ...context.repo,
                 deployment_id: deployment.id,

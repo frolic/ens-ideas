@@ -1,0 +1,23 @@
+{
+  "name": "ens-ideas-api",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "ENS resolver API worker",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251014.0",
+    "@types/node": "^24.0.3",
+    "esbuild": "^0.28.1",
+    "miniflare": "^4.20250617.3",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "itty-router": "^5.0.22",
+    "viem": "^2.38.4"
+  }
+}
