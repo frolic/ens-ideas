@@ -47,6 +47,11 @@ export default Alchemy.Stack(
       main: "apps/site/dist/server/index.js",
       assets: build ? Output.interpolate`${build.outdir}/public` : undefined,
       compatibility: { flags: ["nodejs_als"], date: "2025-11-17" },
+      // Production serves the live domain; other stages stay on workers.dev.
+      domain:
+        stage === "production"
+          ? ["ensideas.com", "www.ensideas.com"]
+          : undefined,
       dev: dev ? { mode: "external", url: dev.url } : undefined,
       url: true,
     });
