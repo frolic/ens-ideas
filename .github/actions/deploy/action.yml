@@ -24,6 +24,9 @@ inputs:
     required: true
   cloudflare-account-id:
     required: true
+  ethereum-rpc-url:
+    description: RPC URL bound into the api worker (ETHEREUM_RPC_URL).
+    default: ""
 
 outputs:
   url:
@@ -73,6 +76,7 @@ runs:
         URL_PATTERN: ${{ inputs.url-pattern }}
         CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare-api-token }}
         CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
+        ETHEREUM_RPC_URL: ${{ inputs.ethereum-rpc-url }}
       run: |
         set -o pipefail
         bun run deploy --stage "$STAGE" --yes | tee deploy.log

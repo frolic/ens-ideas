@@ -30,3 +30,4 @@ jobs:
           url-pattern: "-site-"
           cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ethereum-rpc-url: ${{ secrets.ETHEREUM_RPC_URL }}
