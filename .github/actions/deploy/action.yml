@@ -1,0 +1,115 @@
+name: Deploy
+description: >-
+  Open a GitHub Deployment, run the alchemy deploy for a stage, and report the
+  terminal status (success with the worker URL, or failure) — the same flow for
+  previews and production.
+
+inputs:
+  stage:
+    description: Alchemy stage to deploy (e.g. production, pr-16).
+    required: true
+  environment:
+    description: GitHub environment name (e.g. production, preview/pr-16).
+    required: true
+  ref:
+    description: Commit SHA to attach the deployment to.
+    required: true
+  production:
+    description: "'true' for a production (non-transient) deployment."
+    default: "false"
+  url-pattern:
+    description: Substring to prefer when picking the worker URL from the deploy log (e.g. -site-).
+    default: ""
+  cloudflare-api-token:
+    required: true
+  cloudflare-account-id:
+    required: true
+
+outputs:
+  url:
+    description: The deployed worker URL.
+    value: ${{ steps.run.outputs.url }}
+
+runs:
+  using: composite
+  steps:
+    - id: deployment
+      uses: actions/github-script@v7
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        REF: ${{ inputs.ref }}
+        PRODUCTION: ${{ inputs.production }}
+      with:
+        script: |
+          const production = process.env.PRODUCTION === 'true';
+          const { data } = await github.rest.repos.createDeployment({
+            ...context.repo,
+            ref: process.env.REF,
+            environment: process.env.ENVIRONMENT,
+            description: process.env.ENVIRONMENT,
+            auto_merge: false,
+            required_contexts: [],
+            transient_environment: !production,
+            production_environment: production,
+          });
+          core.setOutput('id', data.id);
+          await github.rest.repos.createDeploymentStatus({
+            ...context.repo,
+            deployment_id: data.id,
+            state: 'pending',
+            description: 'Deploying',
+            log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+          });
+
+    # The wrapped task. continue-on-error keeps the composite alive so the
+    # status is always reported; the failure is re-propagated at the end.
+    # Builds Waku in-graph (Command.Build) then deploys the worker; run under
+    # bun so the alchemy CLI loads the .ts config natively.
+    - id: run
+      continue-on-error: true
+      shell: bash
+      env:
+        STAGE: ${{ inputs.stage }}
+        URL_PATTERN: ${{ inputs.url-pattern }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare-api-token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
+      run: |
+        set -o pipefail
+        bun run deploy --stage "$STAGE" --yes | tee deploy.log
+        urls=$(grep -oE 'https://[a-zA-Z0-9._-]+\.workers\.dev' deploy.log | grep -v 'alchemy-state-store' || true)
+        url=""
+        if [ -n "$URL_PATTERN" ]; then
+          url=$(printf '%s\n' "$urls" | grep -F -- "$URL_PATTERN" | head -1 || true)
+        fi
+        if [ -z "$url" ]; then
+          url=$(printf '%s\n' "$urls" | head -1 || true)
+        fi
+        echo "url=$url" >> "$GITHUB_OUTPUT"
+
+    - id: finish
+      if: always() && steps.deployment.outputs.id
+      uses: actions/github-script@v7
+      env:
+        DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+        OUTCOME: ${{ steps.run.outcome }}
+        URL: ${{ steps.run.outputs.url }}
+      with:
+        script: |
+          const ok = process.env.OUTCOME === 'success';
+          const url = process.env.URL;
+          await github.rest.repos.createDeploymentStatus({
+            ...context.repo,
+            deployment_id: Number(process.env.DEPLOYMENT_ID),
+            state: ok ? 'success' : 'error',
+            description: ok ? 'Deployed' : 'Deploy failed',
+            log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ...(ok && url ? { environment_url: url } : {}),
+            auto_inactive: true,
+          });
+
+    # Re-propagate a deploy failure so the caller job goes red.
+    - if: steps.run.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "::error::deploy failed for stage ${{ inputs.stage }}"
+        exit 1
