@@ -20,6 +20,7 @@ export default Alchemy.Stack(
   },
   Effect.gen(function* () {
     const ctx = yield* Alchemy.AlchemyContext;
+    const stage = yield* Alchemy.Stage;
 
     // Local dev: run Waku's Vite dev server and hand the worker off to it —
     // skip the build, don't start a local workerd instance.
@@ -40,6 +41,9 @@ export default Alchemy.Stack(
         });
 
     const site = yield* Cloudflare.Worker("site", {
+      // Deterministic name → predictable workers.dev URL per stage
+      // (ens-ideas-site-pr-16.<subdomain>.workers.dev), no random hash.
+      name: `ens-ideas-site-${stage}`,
       main: "apps/site/dist/server/index.js",
       assets: build ? Output.interpolate`${build.outdir}/public` : undefined,
       compatibility: { flags: ["nodejs_als"], date: "2025-11-17" },
