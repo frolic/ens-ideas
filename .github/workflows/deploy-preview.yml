@@ -1,0 +1,136 @@
+name: Deploy preview
+
+# Every PR gets its own preview Worker on the `pr-<number>` stage, surfaced as a
+# GitHub Deployment (the PR's "View deployment" link + Environments tab) rather
+# than a bot comment. Closing the PR tears the stage down and marks the
+# environment inactive. Fork PRs are skipped (they can't access deploy secrets).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+      - run: pnpm install --frozen-lockfile
+
+      # Open the deployment against the PR *head* commit — GITHUB_SHA is the
+      # merge commit on pull_request events, and using it breaks the PR ↔
+      # deployment link.
+      - id: deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.createDeployment({
+              ...context.repo,
+              ref: context.payload.pull_request.head.sha,
+              environment: `preview/pr-${context.issue.number}`,
+              description: `Preview for pr-${context.issue.number}`,
+              auto_merge: false,
+              required_contexts: [],
+              transient_environment: true,
+              production_environment: false,
+            });
+            core.setOutput('id', data.id);
+            await github.rest.repos.createDeploymentStatus({
+              ...context.repo,
+              deployment_id: data.id,
+              state: 'pending',
+              description: 'Deploying preview',
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+
+      # Builds Waku in-graph (Command.Build) then deploys the worker. Run under
+      # bun so the alchemy CLI loads the .ts config natively.
+      - id: deploy
+        run: |
+          set -o pipefail
+          bun run deploy --stage "pr-${{ github.event.pull_request.number }}" --yes | tee deploy.log
+          # Surface the site worker (the app a human clicks), not the shared
+          # state-store worker or (later) the api worker.
+          url=$(grep -oE 'https://[a-zA-Z0-9._-]+\.workers\.dev' deploy.log | grep -- '-site-' | head -1)
+          [ -z "$url" ] && url=$(grep -oE 'https://[a-zA-Z0-9._-]+\.workers\.dev' deploy.log | grep -v 'alchemy-state-store' | head -1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Terminal status: success carries the app URL (the "View deployment"
+      # target); failure marks the environment errored. Runs even if the deploy
+      # failed, as long as a deployment was created.
+      - if: always() && steps.deployment.outputs.id
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ok = "${{ steps.deploy.outcome }}" === "success";
+            const url = "${{ steps.deploy.outputs.url }}";
+            await github.rest.repos.createDeploymentStatus({
+              ...context.repo,
+              deployment_id: ${{ steps.deployment.outputs.id }},
+              state: ok ? 'success' : 'error',
+              description: ok ? 'Preview deployed' : 'Preview deploy failed',
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ...(ok && url ? { environment_url: url } : {}),
+              auto_inactive: true,
+            });
+
+  teardown:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+      - run: pnpm install --frozen-lockfile
+      - run: bun run destroy --stage "pr-${{ github.event.pull_request.number }}" --yes
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # The stage's resources are gone — mark its deployments inactive so the
+      # Environments tab reflects reality.
+      - if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const environment = `preview/pr-${context.issue.number}`;
+            const { data: deployments } = await github.rest.repos.listDeployments({
+              ...context.repo,
+              environment,
+            });
+            for (const deployment of deployments) {
+              await github.rest.repos.createDeploymentStatus({
+                ...context.repo,
+                deployment_id: deployment.id,
+                state: 'inactive',
+                description: 'PR closed — stage destroyed',
+              });
+            }

@@ -1,4 +1,15 @@
 {
   "name": "ens-ideas",
-  "private": true
+  "private": true,
+  "scripts": {
+    "dev": "alchemy dev",
+    "deploy": "alchemy deploy",
+    "destroy": "alchemy destroy"
+  },
+  "devDependencies": {
+    "@effect/platform-bun": "4.0.0-beta.98",
+    "@effect/platform-node": "4.0.0-beta.98",
+    "alchemy": "2.0.0-beta.62",
+    "effect": "4.0.0-beta.98"
+  }
 }
