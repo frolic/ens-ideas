@@ -56,6 +56,25 @@ export default Alchemy.Stack(
       url: true,
     });
 
-    return { url: site.url };
+    // ENS resolver API. v2 bundles the TS entry with rolldown, so no build
+    // step (unlike the Waku site). Stays on workers.dev for now — the
+    // api.ensideas.com / api.instantens.com cutover is a deliberate follow-up
+    // (those hostnames currently serve the live `instant-ens-api` worker,
+    // managed from a separate repo).
+    const api = yield* Cloudflare.Worker("api", {
+      name: `ens-ideas-api-${stage}`,
+      main: "apps/api/src/worker.ts",
+      compatibility: { flags: ["nodejs_compat"], date: "2025-11-17" },
+      env: {
+        ETHEREUM_RPC_URL: process.env.ETHEREUM_RPC_URL!,
+        RATE_LIMITER: Cloudflare.RateLimit("RATE_LIMITER", {
+          namespaceId: 1001,
+          simple: { limit: 1000, period: 60 },
+        }),
+      },
+      url: true,
+    });
+
+    return { site: site.url, api: api.url };
   })
 );
