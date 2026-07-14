@@ -1,0 +1,18 @@
+name: Setup
+description: Install the pnpm + node + bun toolchain and project dependencies.
+
+# Checkout must run in the workflow before this (local actions need the repo
+# already checked out to resolve).
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+    - uses: oven-sh/setup-bun@v2
+    - shell: bash
+      run: pnpm install --frozen-lockfile
