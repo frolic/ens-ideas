@@ -1,25 +1,22 @@
 name: Deploy
 description: >-
-  Open a GitHub Deployment, run the alchemy deploy for a stage, and report the
-  terminal status (success with the worker URL, or failure) — the same flow for
-  previews and production.
+  Deploy a stage and record one GitHub Deployment per app (parsed from the
+  alchemy stack output), each carrying its own URL. A failed deploy is recorded
+  as a single stage-level error deployment and re-propagated so the job fails.
 
 inputs:
   stage:
     description: Alchemy stage to deploy (e.g. production, pr-16).
     required: true
-  environment:
-    description: GitHub environment name (e.g. production, preview/pr-16).
+  environment-prefix:
+    description: GitHub environment prefix; each app becomes <prefix>/<app> (e.g. preview/pr-16, production).
     required: true
   ref:
-    description: Commit SHA to attach the deployment to.
+    description: Commit SHA to attach deployments to.
     required: true
   production:
-    description: "'true' for a production (non-transient) deployment."
+    description: "'true' for production (non-transient) deployments."
     default: "false"
-  url-pattern:
-    description: Substring to prefer when picking the worker URL from the deploy log (e.g. -site-).
-    default: ""
   cloudflare-api-token:
     required: true
   cloudflare-account-id:
@@ -28,92 +25,78 @@ inputs:
     description: RPC URL bound into the api worker (ETHEREUM_RPC_URL).
     default: ""
 
-outputs:
-  url:
-    description: The deployed worker URL.
-    value: ${{ steps.run.outputs.url }}
-
 runs:
   using: composite
   steps:
-    - id: deployment
-      uses: actions/github-script@v7
-      env:
-        ENVIRONMENT: ${{ inputs.environment }}
-        REF: ${{ inputs.ref }}
-        PRODUCTION: ${{ inputs.production }}
-      with:
-        script: |
-          const production = process.env.PRODUCTION === 'true';
-          const { data } = await github.rest.repos.createDeployment({
-            ...context.repo,
-            ref: process.env.REF,
-            environment: process.env.ENVIRONMENT,
-            description: process.env.ENVIRONMENT,
-            auto_merge: false,
-            required_contexts: [],
-            transient_environment: !production,
-            production_environment: production,
-          });
-          core.setOutput('id', data.id);
-          await github.rest.repos.createDeploymentStatus({
-            ...context.repo,
-            deployment_id: data.id,
-            state: 'pending',
-            description: 'Deploying',
-            log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-          });
-
     # The wrapped task. continue-on-error keeps the composite alive so the
-    # status is always reported; the failure is re-propagated at the end.
-    # Builds Waku in-graph (Command.Build) then deploys the worker; run under
+    # deployments are always recorded; the failure is re-propagated at the end.
+    # Builds Waku in-graph (Command.Build) then deploys the workers; run under
     # bun so the alchemy CLI loads the .ts config natively.
     - id: run
       continue-on-error: true
       shell: bash
       env:
         STAGE: ${{ inputs.stage }}
-        URL_PATTERN: ${{ inputs.url-pattern }}
         CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare-api-token }}
         CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
         ETHEREUM_RPC_URL: ${{ inputs.ethereum-rpc-url }}
       run: |
         set -o pipefail
         bun run deploy --stage "$STAGE" --yes | tee deploy.log
-        urls=$(grep -oE 'https://[a-zA-Z0-9._-]+\.workers\.dev' deploy.log | grep -v 'alchemy-state-store' || true)
-        url=""
-        if [ -n "$URL_PATTERN" ]; then
-          url=$(printf '%s\n' "$urls" | grep -F -- "$URL_PATTERN" | head -1 || true)
-        fi
-        if [ -z "$url" ]; then
-          url=$(printf '%s\n' "$urls" | head -1 || true)
-        fi
-        echo "url=$url" >> "$GITHUB_OUTPUT"
 
-    - id: finish
-      if: always() && steps.deployment.outputs.id
+    # One GitHub Deployment per app. The app list + URLs come from the deploy
+    # output itself — the stack's return value prints as `name: "url"` pairs —
+    # so the workflow never hardcodes a copy of the apps. On failure (or no
+    # apps parsed), a single stage-level deployment records the error.
+    - if: always()
       uses: actions/github-script@v7
       env:
-        DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+        ENVIRONMENT_PREFIX: ${{ inputs.environment-prefix }}
+        REF: ${{ inputs.ref }}
+        PRODUCTION: ${{ inputs.production }}
         OUTCOME: ${{ steps.run.outcome }}
-        URL: ${{ steps.run.outputs.url }}
       with:
         script: |
+          const fs = require('fs');
           const ok = process.env.OUTCOME === 'success';
-          const url = process.env.URL;
-          await github.rest.repos.createDeploymentStatus({
-            ...context.repo,
-            deployment_id: Number(process.env.DEPLOYMENT_ID),
-            state: ok ? 'success' : 'error',
-            description: ok ? 'Deployed' : 'Deploy failed',
-            log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            ...(ok && url ? { environment_url: url } : {}),
-            auto_inactive: true,
-          });
+          const production = process.env.PRODUCTION === 'true';
+          const prefix = process.env.ENVIRONMENT_PREFIX;
+          const ref = process.env.REF;
+          const logUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
-    # Re-propagate a deploy failure so the caller job goes red.
-    - if: steps.run.outcome == 'failure'
-      shell: bash
-      run: |
-        echo "::error::deploy failed for stage ${{ inputs.stage }}"
-        exit 1
+          const log = fs.existsSync('deploy.log') ? fs.readFileSync('deploy.log', 'utf8') : '';
+          const urls = {};
+          for (const match of log.matchAll(/(\w+): ["'](https:\/\/[^"']+)["']/g)) urls[match[1]] = match[2];
+          const apps = Object.entries(urls);
+
+          const targets = ok && apps.length > 0
+            ? apps.map(([name, url]) => ({ environment: `${prefix}/${name}`, url }))
+            : [{ environment: prefix, url: undefined }];
+
+          for (const target of targets) {
+            const { data } = await github.rest.repos.createDeployment({
+              ...context.repo,
+              ref,
+              environment: target.environment,
+              description: target.environment,
+              auto_merge: false,
+              required_contexts: [],
+              transient_environment: !production,
+              production_environment: production,
+            });
+            await github.rest.repos.createDeploymentStatus({
+              ...context.repo,
+              deployment_id: data.id,
+              state: ok ? 'success' : 'error',
+              description: ok ? 'Deployed' : 'Deploy failed',
+              log_url: logUrl,
+              ...(ok && target.url ? { environment_url: target.url } : {}),
+              auto_inactive: true,
+            });
+          }
+
+          if (apps.length > 0) {
+            const lines = apps.map(([name, url]) => `- **${name}**: ${url}`);
+            await core.summary.addRaw(['### Deploys', ...lines].join('\n')).write();
+          }
+          if (!ok) core.setFailed('deploy failed');
