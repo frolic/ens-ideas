@@ -27,3 +27,6 @@ yarn-error.log*
 
 # alchemy (local logs/cache; state lives in the remote store worker)
 .alchemy
+
+# CI deploy log (written by the preview workflow to extract the worker URL)
+deploy.log
