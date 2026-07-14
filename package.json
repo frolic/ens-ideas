@@ -2,6 +2,7 @@
   "name": "ens-ideas",
   "private": true,
   "scripts": {
+    "dev": "alchemy dev",
     "deploy": "alchemy deploy",
     "destroy": "alchemy destroy"
   },
