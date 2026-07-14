@@ -24,3 +24,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# alchemy (local logs/cache; state lives in the remote store worker)
+.alchemy
