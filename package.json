@@ -2,11 +2,11 @@
   "name": "ens-ideas",
   "private": true,
   "scripts": {
-    "build": "CLOUDFLARE=1 pnpm --filter ./apps/site build",
-    "deploy": "pnpm build && NODE_OPTIONS='--experimental-strip-types --no-warnings' alchemy deploy",
-    "destroy": "NODE_OPTIONS='--experimental-strip-types --no-warnings' alchemy destroy"
+    "deploy": "alchemy deploy",
+    "destroy": "alchemy destroy"
   },
   "devDependencies": {
+    "@effect/platform-bun": "4.0.0-beta.98",
     "@effect/platform-node": "4.0.0-beta.98",
     "alchemy": "2.0.0-beta.62",
     "effect": "4.0.0-beta.98"
