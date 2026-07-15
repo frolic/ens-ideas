@@ -4,30 +4,42 @@ import { rpcUrls } from "./rpcUrls";
 
 const CACHE_KEY = "https://ens-ideas.internal/healthy-rpcs";
 
+/** How long a health-checked list is treated as fresh. */
+const REFRESH_AFTER_SECONDS = 60 * 60;
+
 /**
- * How long a health-checked list stays good. This is the only freshness
- * signal: once the entry expires, `cache.match` misses and we refresh. Health
- * doesn't need tracking any tighter — the transport already falls through a
- * dead RPC to the next one.
+ * How long the entry survives at all — the stale-while-revalidate window.
+ * It lives in `max-age` because the Cache API drops an entry the moment
+ * `max-age` passes and ignores the `stale-while-revalidate` directive, so a
+ * short `max-age` would leave us serving the seed list during every refresh.
  */
-const MAX_AGE_SECONDS = 60 * 60;
+const MAX_AGE_SECONDS = 24 * 60 * 60;
 
 let refreshing = false;
 
 /**
- * The known-good ENS RPCs, health-checked and cached. A cold or expired cache
- * serves the committed seed list immediately and refreshes in the background,
- * so callers never block on a health-check pass.
+ * The known-good ENS RPCs, health-checked and cached. Always serves the cached
+ * list immediately, kicking off a background refresh once the entry ages past
+ * {@link REFRESH_AFTER_SECONDS}, so no request ever pays for a health-check
+ * pass. Falls back to the committed seed list only when nothing is cached.
  */
 export async function getHealthyRpcs(
   ctx: ExecutionContext
 ): Promise<readonly string[]> {
   const cache = caches.default;
   const cached = await cache.match(CACHE_KEY);
-  if (cached) return await cached.json<string[]>();
 
-  ctx.waitUntil(refresh(cache));
-  return rpcUrls;
+  if (!cached) {
+    ctx.waitUntil(refresh(cache));
+    return rpcUrls;
+  }
+
+  // The cache stamps `Age` on every hit, so it already tracks freshness for us.
+  const age = Number(cached.headers.get("Age") ?? 0);
+  if (age >= REFRESH_AFTER_SECONDS) {
+    ctx.waitUntil(refresh(cache));
+  }
+  return await cached.json<string[]>();
 }
 
 /** Health-check chainlist candidates + the seed list and cache the survivors. */

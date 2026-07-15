@@ -52,7 +52,7 @@ it("returns the seed list on a cold cache, then caches the health-checked surviv
   expect(healthy).not.toContain("https://bad.example");
 });
 
-it("lets the cache own freshness via max-age", async () => {
+it("caches the list with a max-age that outlives the refresh threshold", async () => {
   mockChainlist.mockResolvedValue([]);
   mockCheck.mockResolvedValue(true);
   const { ctx, tasks } = makeCtx();
@@ -60,14 +60,30 @@ it("lets the cache own freshness via max-age", async () => {
   await getHealthyRpcs(ctx);
   await Promise.all(tasks);
 
-  expect(store!.headers.get("Cache-Control")).toMatch(/max-age=\d+/);
+  expect(store!.headers.get("Cache-Control")).toMatch(/max-age=86400/);
 });
 
-it("serves the cached list without refreshing", async () => {
-  store = Response.json(["https://cached.example"]);
+it("serves a fresh cached list without refreshing", async () => {
+  store = Response.json(["https://cached.example"], { headers: { Age: "60" } });
   const { ctx, tasks } = makeCtx();
 
   expect(await getHealthyRpcs(ctx)).toEqual(["https://cached.example"]);
   expect(tasks).toHaveLength(0);
   expect(mockChainlist).not.toHaveBeenCalled();
+});
+
+it("serves an aged list immediately and revalidates in the background", async () => {
+  store = Response.json(["https://stale.example"], {
+    headers: { Age: String(2 * 60 * 60) },
+  });
+  mockChainlist.mockResolvedValue([]);
+  mockCheck.mockResolvedValue(true);
+  const { ctx, tasks } = makeCtx();
+
+  // stale list served now — no request waits on the health-check pass
+  expect(await getHealthyRpcs(ctx)).toEqual(["https://stale.example"]);
+  expect(tasks.length).toBeGreaterThan(0);
+
+  await Promise.all(tasks);
+  expect(cache.put).toHaveBeenCalled();
 });
