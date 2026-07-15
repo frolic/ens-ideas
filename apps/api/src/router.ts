@@ -2,7 +2,7 @@ import { AutoRouter, IRequestStrict, status, json, cors } from "itty-router";
 import { createClient, isAddress } from "viem";
 import { mainnet } from "viem/chains";
 import { ethereumTransport } from "./ethereumTransport";
-import { getHealthyRpcs, getRpcPool } from "./getHealthyRpcs";
+import { getHealthyRpcs } from "./getHealthyRpcs";
 import { resolveAddress } from "./resolveAddress";
 import { resolveName } from "./resolveName";
 import { resolveUrl } from "./resolveUrl";
@@ -17,14 +17,6 @@ export const router = AutoRouter<
 >({
   before: [preflight],
   finally: [corsify],
-});
-
-// Current pool of known-good ENS RPCs (health-checked, cached). Handy for
-// debugging and reused by the resolver below.
-router.get("/rpcs", async (_request, _env, ctx) => {
-  return json(await getRpcPool(ctx), {
-    headers: { "Cache-Control": "public, max-age=60" },
-  });
 });
 
 router.get("/ens/resolve/:address", async ({ url, params }, env, ctx) => {

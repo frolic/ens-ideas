@@ -37,7 +37,9 @@ afterEach(() => vi.unstubAllGlobals());
 it("returns the seed list on a cold cache, then caches the health-checked survivors", async () => {
   mockChainlist.mockResolvedValue(["https://good.example", "https://bad.example"]);
   mockCheck.mockImplementation(
-    async (url) => url === "https://good.example" || (rpcUrls as readonly string[]).includes(url)
+    async (url) =>
+      url === "https://good.example" ||
+      (rpcUrls as readonly string[]).includes(url)
   );
   const { ctx, tasks } = makeCtx();
 
@@ -45,31 +47,27 @@ it("returns the seed list on a cold cache, then caches the health-checked surviv
 
   await Promise.all(tasks); // let the background refresh finish
   expect(cache.put).toHaveBeenCalledOnce();
-  const pool = (await store!.json()) as { rpcs: string[] };
-  expect(pool.rpcs).toContain("https://good.example");
-  expect(pool.rpcs).not.toContain("https://bad.example");
+  const healthy: string[] = await store!.json();
+  expect(healthy).toContain("https://good.example");
+  expect(healthy).not.toContain("https://bad.example");
 });
 
-it("serves a fresh cached pool without refreshing", async () => {
-  store = Response.json({ generatedAt: Date.now(), rpcs: ["https://cached.example"] });
+it("lets the cache own freshness via max-age", async () => {
+  mockChainlist.mockResolvedValue([]);
+  mockCheck.mockResolvedValue(true);
+  const { ctx, tasks } = makeCtx();
+
+  await getHealthyRpcs(ctx);
+  await Promise.all(tasks);
+
+  expect(store!.headers.get("Cache-Control")).toMatch(/max-age=\d+/);
+});
+
+it("serves the cached list without refreshing", async () => {
+  store = Response.json(["https://cached.example"]);
   const { ctx, tasks } = makeCtx();
 
   expect(await getHealthyRpcs(ctx)).toEqual(["https://cached.example"]);
   expect(tasks).toHaveLength(0);
   expect(mockChainlist).not.toHaveBeenCalled();
-});
-
-it("serves a stale cached pool immediately and refreshes in the background", async () => {
-  store = Response.json({
-    generatedAt: Date.now() - 10 * 60 * 1000,
-    rpcs: ["https://stale.example"],
-  });
-  mockChainlist.mockResolvedValue([]);
-  mockCheck.mockResolvedValue(true);
-  const { ctx, tasks } = makeCtx();
-
-  expect(await getHealthyRpcs(ctx)).toEqual(["https://stale.example"]); // stale served now
-  expect(tasks.length).toBeGreaterThan(0);
-  await Promise.all(tasks);
-  expect(cache.put).toHaveBeenCalled();
 });

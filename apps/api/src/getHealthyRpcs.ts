@@ -2,43 +2,32 @@ import { checkRpc } from "./checkRpc";
 import { fetchChainlistRpcs } from "./fetchChainlistRpcs";
 import { rpcUrls } from "./rpcUrls";
 
-const CACHE_KEY = "https://ens-ideas.internal/rpc-pool";
-const FRESH_MS = 5 * 60 * 1000;
+const CACHE_KEY = "https://ens-ideas.internal/healthy-rpcs";
 
-export type Pool = { generatedAt: number; checked: number; rpcs: string[] };
-
-const seedPool = (): Pool => ({ generatedAt: 0, checked: 0, rpcs: [...rpcUrls] });
+/**
+ * How long a health-checked list stays good. This is the only freshness
+ * signal: once the entry expires, `cache.match` misses and we refresh. Health
+ * doesn't need tracking any tighter — the transport already falls through a
+ * dead RPC to the next one.
+ */
+const MAX_AGE_SECONDS = 60 * 60;
 
 let refreshing = false;
 
 /**
- * The current pool of known-good ENS RPCs plus freshness metadata. Reads a
- * cached, periodically-refreshed health-checked list from the Cache API; on a
- * cold or stale cache it returns the committed seed list immediately (with
- * `generatedAt: 0`) and refreshes in the background (via `waitUntil`), so callers
- * never block on the health-check pass.
+ * The known-good ENS RPCs, health-checked and cached. A cold or expired cache
+ * serves the committed seed list immediately and refreshes in the background,
+ * so callers never block on a health-check pass.
  */
-export async function getRpcPool(ctx: ExecutionContext): Promise<Pool> {
-  const cache = caches.default;
-  const cached = await cache.match(CACHE_KEY);
-
-  if (!cached) {
-    ctx.waitUntil(refresh(cache));
-    return seedPool();
-  }
-
-  const pool: Pool = await cached.json();
-  if (Date.now() - pool.generatedAt >= FRESH_MS) {
-    ctx.waitUntil(refresh(cache));
-  }
-  return pool.rpcs.length ? pool : seedPool();
-}
-
-/** Just the RPC URLs from {@link getRpcPool}. */
 export async function getHealthyRpcs(
   ctx: ExecutionContext
 ): Promise<readonly string[]> {
-  return (await getRpcPool(ctx)).rpcs;
+  const cache = caches.default;
+  const cached = await cache.match(CACHE_KEY);
+  if (cached) return await cached.json<string[]>();
+
+  ctx.waitUntil(refresh(cache));
+  return rpcUrls;
 }
 
 /** Health-check chainlist candidates + the seed list and cache the survivors. */
@@ -49,18 +38,15 @@ async function refresh(cache: Cache): Promise<void> {
     const candidates = await fetchChainlistRpcs().catch(() => []);
     const unique = [...new Set([...candidates, ...rpcUrls])];
     const healthy = (
-      await Promise.all(unique.map(async (url) => ((await checkRpc(url)) ? url : null)))
+      await Promise.all(
+        unique.map(async (url) => ((await checkRpc(url)) ? url : null))
+      )
     ).filter((url): url is string => url !== null);
 
-    const pool: Pool = {
-      generatedAt: Date.now(),
-      checked: unique.length,
-      rpcs: healthy.length ? healthy : [...rpcUrls],
-    };
     await cache.put(
       CACHE_KEY,
-      Response.json(pool, {
-        headers: { "Cache-Control": "public, max-age=86400" },
+      Response.json(healthy.length ? healthy : [...rpcUrls], {
+        headers: { "Cache-Control": `public, max-age=${MAX_AGE_SECONDS}` },
       })
     );
   } finally {
