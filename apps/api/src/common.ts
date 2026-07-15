@@ -1,3 +1,5 @@
+import type { ApiEnv } from "../../../alchemy.run.ts";
+
 export type ResolveResult = {
   address: string | null;
   name: string | null;
@@ -6,13 +8,8 @@ export type ResolveResult = {
   error?: string;
 };
 
-/**
- * Runtime bindings the worker receives. `RATE_LIMITER` is the native
- * Cloudflare Rate Limiting binding; `ETHEREUM_RPC_URL` is a plain env string.
- * Declared explicitly so runtime code stays decoupled from the Alchemy stack
- * config (the deploy graph in the root `alchemy.run.ts`).
- */
-export interface Env {
-  ETHEREUM_RPC_URL: string;
-  RATE_LIMITER: RateLimit;
-}
+/** KV key holding the health-checked RPC list the cron writes. */
+export const RPCS_KEY = "healthy";
+
+/** Runtime bindings the worker receives, inferred from the stack config. */
+export type Env = ApiEnv;

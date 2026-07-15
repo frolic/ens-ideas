@@ -14,29 +14,12 @@ const testDir = dirname(fileURLToPath(import.meta.url));
 let mf: Miniflare;
 
 beforeAll(async () => {
-  // alchemy.run.ts is only imported for types, and executes a deployment if
-  // actually run — stub it out of the bundle.
   const bundle = await build({
     entryPoints: [join(testDir, "worker.ts")],
     bundle: true,
     format: "esm",
     write: false,
     conditions: ["workerd", "worker", "browser"],
-    plugins: [
-      {
-        name: "stub-alchemy-run",
-        setup(build) {
-          build.onResolve({ filter: /alchemy\.run(\.ts)?$/ }, () => ({
-            path: "alchemy-run",
-            namespace: "stub",
-          }));
-          build.onLoad({ filter: /.*/, namespace: "stub" }, () => ({
-            contents: "export const worker = {};",
-            loader: "js" as const,
-          }));
-        },
-      },
-    ],
   });
 
   // Every eth_call reverse-resolves to vitalik.eth.
@@ -59,6 +42,9 @@ beforeAll(async () => {
       },
     ],
     bindings: { ETHEREUM_RPC_URL: "https://rpc.mock/" },
+    // Left empty: a cold RPC list is exactly the case where the resolver should
+    // go straight to the paid endpoint (the mocked RPC below).
+    kvNamespaces: ["RPCS"],
     ratelimits: {
       RATE_LIMITER: { namespace_id: "1001", simple: { limit: RATE_LIMIT, period: 60 } },
     },

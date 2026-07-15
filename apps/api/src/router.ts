@@ -1,10 +1,11 @@
 import { AutoRouter, IRequestStrict, status, json, cors } from "itty-router";
-import { createClient, http, isAddress } from "viem";
+import { createClient, isAddress } from "viem";
 import { mainnet } from "viem/chains";
+import { ethereumTransport } from "./ethereumTransport";
 import { resolveAddress } from "./resolveAddress";
 import { resolveName } from "./resolveName";
 import { resolveUrl } from "./resolveUrl";
-import type { Env } from "./common";
+import { RPCS_KEY, type Env } from "./common";
 
 const { preflight, corsify } = cors();
 
@@ -18,9 +19,11 @@ export const router = AutoRouter<
 });
 
 router.get("/ens/resolve/:address", async ({ url, params }, env) => {
+  // Kept fresh by the cron. Empty (cold KV) just means straight to the paid RPC.
+  const healthy = (await env.RPCS.get<string[]>(RPCS_KEY, "json")) ?? [];
   const client = createClient({
     chain: mainnet,
-    transport: http(env.ETHEREUM_RPC_URL),
+    transport: ethereumTransport(healthy, env.ETHEREUM_RPC_URL),
   });
 
   const lowercaseAddress = params.address.toLowerCase();
