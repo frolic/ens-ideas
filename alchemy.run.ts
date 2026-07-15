@@ -13,10 +13,7 @@ import * as Effect from "effect/Effect";
 // Run under bun (`bun run deploy` / `bun run dev`) so the CLI loads this .ts
 // config natively.
 // ENS resolver API. v2 bundles the TS entry with rolldown, so no build step
-// (unlike the Waku site). Stays on workers.dev for now — the api.ensideas.com /
-// api.instantens.com cutover is a deliberate follow-up (those hostnames
-// currently serve the live `instant-ens-api` worker, managed from a separate
-// repo).
+// (unlike the Waku site).
 //
 // Declared out here (rather than inline in the stack) so the worker's runtime
 // env type can be inferred from these bindings — see {@link ApiEnv}.
@@ -27,6 +24,12 @@ const apiWorker = (rpcs: Cloudflare.KV.Namespace, stage: string) =>
     compatibility: { flags: ["nodejs_compat"], date: "2025-11-17" },
     // Hourly health-check pass, once for the whole fleet.
     crons: ["0 * * * *"],
+    // Production serves the live API hostnames; other stages stay on
+    // workers.dev.
+    domain:
+      stage === "production"
+        ? ["api.ensideas.com", "api.instantens.com"]
+        : undefined,
     env: {
       ETHEREUM_RPC_URL: process.env.ETHEREUM_RPC_URL!,
       RATE_LIMITER: Cloudflare.RateLimit("RATE_LIMITER", {
