@@ -24,12 +24,10 @@ const apiWorker = (rpcs: Cloudflare.KV.Namespace, stage: string) =>
     compatibility: { flags: ["nodejs_compat"], date: "2025-11-17" },
     // Hourly health-check pass, once for the whole fleet.
     crons: ["0 * * * *"],
-    // Production serves the live API hostnames; other stages stay on
-    // workers.dev.
-    domain:
-      stage === "production"
-        ? ["api.ensideas.com", "api.instantens.com"]
-        : undefined,
+    // Production serves the live API hostname; other stages stay on
+    // workers.dev. api.instantens.com is deliberately left on the old worker —
+    // it's an unused domain from an abandoned migration.
+    domain: stage === "production" ? ["api.ensideas.com"] : undefined,
     env: {
       ETHEREUM_RPC_URL: process.env.ETHEREUM_RPC_URL!,
       RATE_LIMITER: Cloudflare.RateLimit("RATE_LIMITER", {
