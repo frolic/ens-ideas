@@ -2,11 +2,15 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createClient, numberToHex } from "viem";
 import { mainnet } from "viem/chains";
 import { ethereumTransport } from "./ethereumTransport";
-import { rpcUrls } from "./rpcUrls";
 
 const PAID_RPC_URL = "https://paid.mock/";
 const paidHost = new URL(PAID_RPC_URL).host;
-const freeHosts = rpcUrls.map((url) => new URL(url).host);
+const freeRpcUrls = [
+  "https://free-a.mock/",
+  "https://free-b.mock/",
+  "https://free-c.mock/",
+];
+const freeHosts = freeRpcUrls.map((url) => new URL(url).host);
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -29,10 +33,10 @@ function stubFetch(respond: (host: string) => { status: number; result?: unknown
 
 const blockNumber = numberToHex(123n);
 
-function requestBlockNumber() {
+function requestBlockNumber(rpcs: readonly string[] = freeRpcUrls) {
   const client = createClient({
     chain: mainnet,
-    transport: ethereumTransport(rpcUrls, PAID_RPC_URL),
+    transport: ethereumTransport(rpcs, PAID_RPC_URL),
   });
   return client.request({ method: "eth_blockNumber" });
 }
@@ -57,4 +61,11 @@ it("falls back to the paid endpoint only after every free RPC is rate-limited", 
   // every free RPC was attempted, then the paid endpoint last
   expect(new Set(calls.slice(0, -1))).toEqual(new Set(freeHosts));
   expect(calls.at(-1)).toBe(paidHost);
+});
+
+it("goes straight to the paid endpoint when there are no free RPCs (cold KV)", async () => {
+  const calls = stubFetch(() => ({ status: 200, result: blockNumber }));
+
+  expect(await requestBlockNumber([])).toBe(blockNumber);
+  expect(calls).toEqual([paidHost]);
 });

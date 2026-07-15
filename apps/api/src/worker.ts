@@ -1,3 +1,4 @@
+import { refreshRpcs } from "./refreshRpcs.ts";
 import { router } from "./router.ts";
 import type { Env } from "./common.ts";
 
@@ -38,5 +39,13 @@ export default {
     }
 
     return res;
+  },
+
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    _ctx: ExecutionContext
+  ): Promise<void> {
+    await refreshRpcs(env);
   },
 };

@@ -61,16 +61,24 @@ export default Alchemy.Stack(
     // api.ensideas.com / api.instantens.com cutover is a deliberate follow-up
     // (those hostnames currently serve the live `instant-ens-api` worker,
     // managed from a separate repo).
+    // Holds the health-checked RPC list. KV rather than the Cache API because
+    // the cron that refreshes it runs in one colo, and the Cache API is
+    // per-colo — every other colo would never see it.
+    const rpcs = yield* Cloudflare.KV.Namespace("rpcs");
+
     const api = yield* Cloudflare.Worker("api", {
       name: `ens-ideas-api-${stage}`,
       main: "apps/api/src/worker.ts",
       compatibility: { flags: ["nodejs_compat"], date: "2025-11-17" },
+      // Hourly health-check pass, once for the whole fleet.
+      crons: ["0 * * * *"],
       env: {
         ETHEREUM_RPC_URL: process.env.ETHEREUM_RPC_URL!,
         RATE_LIMITER: Cloudflare.RateLimit("RATE_LIMITER", {
           namespaceId: 1001,
           simple: { limit: 1000, period: 60 },
         }),
+        RPCS: rpcs,
       },
       url: true,
     });
