@@ -9,15 +9,15 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251014.0",
-    "@types/node": "^24.0.3",
-    "esbuild": "^0.28.1",
-    "miniflare": "^4.20250617.3",
-    "typescript": "^5.8.3",
-    "vitest": "^4.1.9"
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@types/node": "^24.13.3",
+    "esbuild": "^0.28.2",
+    "miniflare": "^4.20260730.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
-    "itty-router": "^5.0.22",
-    "viem": "^2.38.4"
+    "itty-router": "^5.0.24",
+    "viem": "^2.55.13"
   }
 }
