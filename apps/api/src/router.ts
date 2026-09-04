@@ -1,4 +1,11 @@
-import { AutoRouter, IRequestStrict, status, json, cors } from "itty-router";
+import {
+  AutoRouter,
+  IRequestStrict,
+  status,
+  json,
+  cors,
+  error,
+} from "itty-router";
 import { createClient, isAddress } from "viem";
 import { mainnet } from "viem/chains";
 import { ethereumTransport } from "./ethereumTransport";
@@ -16,6 +23,12 @@ export const router = AutoRouter<
 >({
   before: [preflight],
   finally: [corsify],
+  // Invocation logs are off (see alchemy.run.ts), so failures are the only
+  // thing that reaches Workers Logs and each one has to be logged explicitly.
+  catch: (thrown, request) => {
+    console.error("unhandled error", request.url, thrown);
+    return error(thrown);
+  },
 });
 
 router.get("/ens/resolve/:address", async ({ url, params }, env) => {
@@ -40,6 +53,7 @@ router.get("/ens/resolve/:address", async ({ url, params }, env) => {
     : await resolveName(client, lowercaseAddress);
 
   if (data.error) {
+    console.error("resolve failed", url, data.error);
     return json(data, { status: 500 });
   }
 
