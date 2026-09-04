@@ -36,6 +36,13 @@ const apiWorker = (rpcs: Cloudflare.KV.Namespace, stage: string) =>
       }),
       RPCS: rpcs,
     },
+    // Workers Logs bills per event and invocation logs emit one per request,
+    // which was nearly the whole Cloudflare bill. Keep the channel open for
+    // explicit console.error calls only.
+    observability: {
+      enabled: true,
+      logs: { enabled: true, invocationLogs: false },
+    },
     url: true,
   });
 
@@ -83,6 +90,11 @@ export default Alchemy.Stack(
           ? ["ensideas.com", "www.ensideas.com"]
           : undefined,
       dev: dev ? { mode: "external", url: dev.url } : undefined,
+      // Same reasoning as the api worker: no per-request invocation logs.
+      observability: {
+        enabled: true,
+        logs: { enabled: true, invocationLogs: false },
+      },
       url: true,
     });
 
